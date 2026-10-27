@@ -333,3 +333,510 @@ tbody tr:hover { background: hsla(170 40% 70% / .04); }
     align-items: center;
 }
 
+/* ====================================================================
+   WhatsApp Web Layout & Chat Styling
+   ==================================================================== */
+
+.wa-container {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    height: calc(100vh - 100px);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border-strong);
+    background: hsla(200, 30%, 8%, 0.85);
+    box-shadow: var(--shadow);
+}
+
+/* Left Chat List Pane */
+.wa-sidebar {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: hsla(200, 28%, 9%, 0.95);
+    overflow: hidden;
+}
+
+.wa-sidebar-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: hsla(200, 26%, 11%, 0.6);
+}
+
+.wa-sidebar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wa-sidebar-title {
+    font-size: 19px;
+    font-weight: 700;
+    font-family: var(--font-display);
+}
+
+.wa-search-box {
+    position: relative;
+    width: 100%;
+}
+
+.wa-search-box input {
+    width: 100%;
+    padding: 8px 12px 8px 32px;
+    border-radius: 8px;
+    font-size: 13px;
+    background: hsla(200, 30%, 6%, 0.7);
+    border: 1px solid var(--border);
+}
+
+.wa-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.wa-filter-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.wa-filter-chip {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 99px;
+    background: hsla(200, 25%, 15%, 0.6);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.wa-filter-chip:hover {
+    color: var(--text);
+    background: hsla(200, 25%, 20%, 0.8);
+}
+
+.wa-filter-chip.active {
+    background: hsla(152, 68%, 47%, 0.18);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.wa-chat-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.wa-chat-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid hsla(170, 40%, 70%, 0.04);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.wa-chat-row:hover {
+    background: hsla(170, 40%, 70%, 0.05);
+}
+
+.wa-chat-row.active {
+    background: hsla(152, 68%, 47%, 0.12);
+    border-left: 3px solid var(--accent);
+}
+
+.wa-chat-avatar {
+    position: relative;
+    flex: 0 0 44px;
+    height: 44px;
+}
+
+.wa-chat-avatar .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 16px;
+}
+
+.wa-chat-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.wa-chat-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.wa-chat-name {
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wa-chat-time {
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+
+.wa-chat-row-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.wa-chat-last-msg {
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wa-unread-badge {
+    background: var(--accent);
+    color: hsl(200, 40%, 8%);
+    font-weight: 700;
+    font-size: 11px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 99px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+}
+
+/* Right Conversation Pane */
+.wa-conversation {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: hsla(200, 30%, 7%, 0.95);
+    position: relative;
+}
+
+.wa-conv-header {
+    height: 60px;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: hsla(200, 26%, 10%, 0.85);
+    z-index: 10;
+}
+
+.wa-conv-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.wa-conv-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.wa-conv-title {
+    font-weight: 600;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wa-conv-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wa-conv-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Chat messages scrollable wallpaper container */
+.wa-messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    background-color: hsla(200, 30%, 6%, 0.95);
+    background-image: radial-gradient(hsla(170, 30%, 50%, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.wa-date-divider {
+    align-self: center;
+    background: hsla(200, 25%, 16%, 0.85);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 3px 12px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 8px 0;
+    user-select: none;
+}
+
+.wa-encryption-notice {
+    align-self: center;
+    background: hsla(45, 90%, 50%, 0.1);
+    border: 1px solid hsla(45, 90%, 50%, 0.25);
+    color: hsl(45, 95%, 70%);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    max-width: 440px;
+    text-align: center;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+/* Bubbles */
+.wa-bubble-wrap {
+    display: flex;
+    flex-direction: column;
+    max-width: 70%;
+}
+
+.wa-bubble-wrap.incoming {
+    align-self: flex-start;
+}
+
+.wa-bubble-wrap.outgoing {
+    align-self: flex-end;
+}
+
+.wa-bubble {
+    position: relative;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    word-break: break-word;
+    white-space: pre-wrap;
+    box-shadow: 0 2px 5px hsla(0, 0%, 0%, 0.25);
+}
+
+.wa-bubble.incoming {
+    background: hsla(200, 25%, 15%, 0.92);
+    border: 1px solid hsla(170, 30%, 60%, 0.12);
+    color: var(--text);
+    border-top-left-radius: 2px;
+}
+
+.wa-bubble.outgoing {
+    background: hsla(158, 60%, 18%, 0.95);
+    border: 1px solid hsla(152, 68%, 47%, 0.35);
+    color: #f0fdf4;
+    border-top-right-radius: 2px;
+}
+
+.wa-bubble-sender {
+    font-size: 11.5px;
+    font-weight: 600;
+    margin-bottom: 2px;
+    color: hsl(174, 80%, 65%);
+}
+
+.wa-bubble-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    float: right;
+    margin-left: 10px;
+    margin-top: 4px;
+    font-size: 10.5px;
+    color: var(--muted);
+    user-select: none;
+}
+
+.wa-bubble.outgoing .wa-bubble-meta {
+    color: hsla(152, 60%, 80%, 0.7);
+}
+
+.wa-checkmarks {
+    color: hsl(190, 90%, 65%);
+    font-weight: 700;
+}
+
+/* Bottom Message Composer */
+.wa-conv-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: hsla(200, 26%, 10%, 0.95);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+}
+
+.wa-composer-vars {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.wa-composer-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wa-composer-input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 22px;
+    font-size: 14px;
+    background: hsla(200, 30%, 6%, 0.85);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    resize: none;
+    max-height: 120px;
+    min-height: 42px;
+}
+
+.wa-send-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none;
+    color: hsl(200, 40%, 8%);
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 14px var(--accent-glow);
+}
+
+.wa-send-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Empty Conversation State */
+.wa-empty-conv {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    border-bottom: 6px solid var(--accent);
+}
+
+.wa-empty-icon {
+    font-size: 72px;
+    margin-bottom: 16px;
+    opacity: 0.9;
+}
+
+.wa-empty-title {
+    font-size: 24px;
+    color: var(--text);
+    margin-bottom: 8px;
+    font-family: var(--font-display);
+}
+
+.wa-empty-desc {
+    max-width: 460px;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.wa-composer-var-chip {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    background: hsla(152, 68%, 47%, 0.12);
+    border: 1px solid hsla(152, 68%, 47%, 0.3);
+    color: var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.wa-composer-var-chip:hover {
+    background: hsla(152, 68%, 47%, 0.22);
+    transform: translateY(-1px);
+}
+
+.wa-attached-file-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    background: hsla(200, 30%, 15%, 0.9);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+}
+
+.wa-attached-file-pill .remove-file {
+    cursor: pointer;
+    color: var(--danger);
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.wa-bubble-media {
+    margin-bottom: 6px;
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 280px;
+}
+
+.wa-bubble-media img, .wa-bubble-media video {
+    max-width: 100%;
+    display: block;
+    border-radius: 6px;
+}
+
+
+

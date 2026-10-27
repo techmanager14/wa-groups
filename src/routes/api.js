@@ -11,6 +11,7 @@ import { leadsCsv, toCsv, captureAll } from '../automation/leads.js';
 import { summary } from '../automation/analytics.js';
 import { publicView, kick, isRunning } from '../automation/broadcast.js';
 import { jidToPhone } from '../wa/util.js';
+import { chatService } from '../chat/chat.service.js';
 
 export const AUTH_COOKIE = 'wag_auth';
 export const authToken = () => crypto.createHash('sha256').update(`wa-groups:${config.adminPassword}`).digest('hex');
@@ -57,6 +58,26 @@ r.get('/status', (req, res) => res.json(wa.publicState()));
 r.post('/wa/connect', async (req, res) => { await wa.connect({ force: bool(req.body?.force) }); res.json(wa.publicState()); });
 r.post('/wa/logout', async (req, res) => { await wa.logout(); res.json(wa.publicState()); });
 r.post('/wa/refresh', async (req, res) => { await wa.refreshGroups(); res.json(manage.listAll()); });
+
+// ---------- live chats ----------
+
+r.get('/chats', (req, res) => res.json(chatService.getChatsList()));
+r.get('/chats/:jid/messages', (req, res) => res.json(chatService.getChatMessages(req.params.jid)));
+r.post('/chats/:jid/read', (req, res) => { chatService.markRead(req.params.jid); res.json({ ok: true }); });
+r.post('/chats/:jid/messages', upload.single('media'), async (req, res) => {
+    let customVars = {};
+    try {
+        if (typeof req.body?.customVars === 'string') customVars = JSON.parse(req.body.customVars);
+        else if (req.body?.customVars && typeof req.body.customVars === 'object') customVars = req.body.customVars;
+    } catch { customVars = {}; }
+
+    const result = await chatService.sendChatMessage(req.params.jid, {
+        text: str(req.body?.text, 4096),
+        file: req.file,
+        customVars
+    });
+    res.json(result);
+});
 
 // ---------- groups & communities ----------
 

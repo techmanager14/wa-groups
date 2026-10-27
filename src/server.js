@@ -9,6 +9,7 @@ import { wa } from './wa/session.js';
 import { onJobChange } from './wa/manage.js';
 import { startAutomation } from './automation/index.js';
 import { onBroadcastChange } from './automation/broadcast.js';
+import { chatService } from './chat/chat.service.js';
 import api, { AUTH_COOKIE, authToken } from './routes/api.js';
 
 const app = express();
@@ -47,6 +48,8 @@ wa.on('groups', () => {
 });
 onJobChange((job) => io.emit('job', job));
 onBroadcastChange((b) => io.emit('broadcast', b));
+chatService.on('message', (msg) => io.emit('chat:message', msg));
+chatService.on('read', (ev) => io.emit('chat:read', ev));
 
 // ---------- boot ----------
 

@@ -5,10 +5,12 @@ import { autoReply, welcome } from './responders.js';
 import { recordMessage, recordParticipants, snapshotAll } from './analytics.js';
 import { captureFromMessage, captureGroup, captureAll } from './leads.js';
 import { startScheduler } from './broadcast.js';
+import { chatService } from '../chat/chat.service.js';
 
 export function startAutomation() {
     wa.on('message', async (m) => {
         try {
+            chatService.recordMessage(m);
             recordMessage(m);
             captureFromMessage(m);
             if (await moderate(m)) return; // moderated messages never trigger replies

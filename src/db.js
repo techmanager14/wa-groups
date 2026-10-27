@@ -37,7 +37,9 @@ const DEFAULTS = () => ({
     },
     broadcasts: [],
     leads: {},                    // userJid -> lead
-    stats: {}                     // groupJid -> { days: { 'YYYY-MM-DD': { messages, joins, leaves, size, senders } } }
+    stats: {},                    // groupJid -> { days: { 'YYYY-MM-DD': { messages, joins, leaves, size, senders } } }
+    messages: {},                 // chatJid -> Array of messages
+    unread: {}                    // chatJid -> number of unread messages
 });
 
 let data;

@@ -36,6 +36,7 @@ async function showApp() {
     connectSocket();
     updatePill();
     await loadGroups().catch(() => { });
+    api('GET', '/chats').then((c) => { chatListData = c; updateUnreadTotalBadge(); }).catch(() => { });
     route();
 }
 
@@ -83,10 +84,12 @@ function connectSocket() {
         if (job.status === 'failed') toast(`Job failed: ${job.error}`, 'error');
     });
     socket.on('broadcast', (b) => { if (current === 'broadcasts') updateBroadcastRow(b); });
+    socket.on('chat:message', (m) => handleSocketChatMessage(m));
+    socket.on('chat:read', (r) => handleSocketChatRead(r?.chatJid));
 }
 
 function rerenderIfGroupPage() {
-    if (['groups', 'communities'].includes(current) && $('#modal').classList.contains('hidden')) route();
+    if (['groups', 'communities', 'chats'].includes(current) && $('#modal').classList.contains('hidden')) route();
 }
 
 async function loadGroups() {
@@ -122,7 +125,7 @@ const requireConnected = () => {
 // ====================================================================
 
 const routes = {
-    dashboard: ['Dashboard', renderDashboard],
+    chats: ['Chats', renderChats],
     groups: ['Groups', renderGroups],
     communities: ['Communities', renderCommunities],
     broadcasts: ['Broadcasts', renderBroadcasts],
@@ -130,13 +133,15 @@ const routes = {
     moderation: ['Moderation', renderModeration],
     welcome: ['Welcome / Goodbye', renderWelcome],
     leads: ['Leads', renderLeads],
-    analytics: ['Analytics', renderAnalytics]
+    analytics: ['Analytics', renderAnalytics],
+    dashboard: ['Dashboard / Device', renderDashboard]
 };
 
 async function route() {
-    const key = (location.hash.replace(/^#\/?/, '').split('?')[0]) || 'dashboard';
-    const [title, render] = routes[key] || routes.dashboard;
-    current = routes[key] ? key : 'dashboard';
+    const raw = (location.hash.replace(/^#\/?/, '').split('?')[0]);
+    const key = raw || 'chats';
+    const [title, render] = routes[key] || routes.chats;
+    current = routes[key] ? key : 'chats';
     $$('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.route === current));
     $('#page-title').textContent = title;
     document.title = `${title} · WA-Groups`;
@@ -146,6 +151,515 @@ async function route() {
     try { await render(); } catch (err) { page.innerHTML = `<div class="card glass">${empty('⚠️', 'Something went wrong', err.message)}</div>`; }
 }
 window.addEventListener('hashchange', route);
+
+// ====================================================================
+// WhatsApp Web Chats
+// ====================================================================
+
+let chatListData = [];
+let activeChatJid = null;
+let activeChatMessages = [];
+let chatFilter = 'all';
+let chatSearch = '';
+
+const SENDER_COLORS = [
+    'hsl(174, 80%, 65%)',
+    'hsl(42, 95%, 65%)',
+    'hsl(280, 80%, 75%)',
+    'hsl(190, 90%, 65%)',
+    'hsl(330, 85%, 70%)',
+    'hsl(120, 65%, 65%)',
+    'hsl(25, 95%, 68%)'
+];
+
+function getSenderColor(str) {
+    if (!str) return SENDER_COLORS[0];
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return SENDER_COLORS[hash % SENDER_COLORS.length];
+}
+
+function updateUnreadTotalBadge() {
+    const total = chatListData.reduce((sum, c) => sum + (c.unread || 0), 0);
+    const badge = $('#unread-total-badge');
+    if (badge) {
+        badge.textContent = total;
+        badge.classList.toggle('hidden', total === 0);
+    }
+}
+
+function formatChatTime(ts) {
+    if (!ts) return '';
+    const date = new Date(ts);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+        return 'Yesterday';
+    }
+    const diffDays = Math.floor((now - date) / 86400000);
+    if (diffDays < 7) {
+        return date.toLocaleDateString([], { weekday: 'short' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function handleSocketChatMessage(msg) {
+    let chat = chatListData.find((c) => c.jid === msg.chatJid);
+    if (!chat) {
+        const all = allTargets();
+        const found = all.find((g) => g.jid === msg.chatJid);
+        chat = {
+            jid: msg.chatJid,
+            subject: found?.subject || msg.chatJid.split('@')[0],
+            desc: found?.desc || '',
+            size: found?.size || 0,
+            isCommunity: !!found?.isCommunity,
+            isCommunityAnnounce: !!found?.isCommunityAnnounce,
+            announce: !!found?.announce,
+            iAmAdmin: found?.iAmAdmin || false,
+            unread: 0,
+            lastMessage: null
+        };
+        chatListData.unshift(chat);
+    }
+
+    chat.lastMessage = {
+        id: msg.id,
+        text: msg.text,
+        fromMe: msg.fromMe,
+        senderName: msg.senderName,
+        timestamp: msg.timestamp,
+        hasMedia: !!msg.media
+    };
+
+    if (msg.chatJid !== activeChatJid && !msg.fromMe) {
+        chat.unread = (chat.unread || 0) + 1;
+    }
+
+    const idx = chatListData.findIndex((c) => c.jid === msg.chatJid);
+    if (idx > 0) {
+        const [c] = chatListData.splice(idx, 1);
+        chatListData.unshift(c);
+    }
+
+    updateUnreadTotalBadge();
+
+    if (current === 'chats') {
+        drawChatList();
+        if (msg.chatJid === activeChatJid) {
+            if (!activeChatMessages.some((m) => m.id === msg.id)) {
+                activeChatMessages.push(msg);
+                drawMessagesList();
+                api('POST', `/chats/${encodeURIComponent(msg.chatJid)}/read`).catch(() => { });
+            }
+        }
+    }
+}
+
+function handleSocketChatRead(chatJid) {
+    const chat = chatListData.find((c) => c.jid === chatJid);
+    if (chat) {
+        chat.unread = 0;
+        updateUnreadTotalBadge();
+        if (current === 'chats') {
+            const badge = $(`[data-jid="${chatJid}"] .wa-unread-badge`);
+            if (badge) badge.remove();
+        }
+    }
+}
+
+async function renderChats() {
+    const notConn = requireConnected();
+    if (notConn) { page.innerHTML = notConn; return; }
+
+    chatListData = await api('GET', '/chats').catch(() => []);
+    updateUnreadTotalBadge();
+
+    const hashParams = new URLSearchParams(location.hash.split('?')[1] || '');
+    const paramJid = hashParams.get('jid');
+    if (paramJid && chatListData.some((c) => c.jid === paramJid)) {
+        activeChatJid = paramJid;
+    }
+
+    page.innerHTML = `
+        <div class="wa-container">
+            <div class="wa-sidebar">
+                <div class="wa-sidebar-header">
+                    <div class="wa-sidebar-top">
+                        <span class="wa-sidebar-title">Chats</span>
+                        <div class="actions" style="gap:4px">
+                            <button id="wa-btn-refresh-chats" class="btn btn-ghost btn-sm" title="Refresh chats">🔄</button>
+                            <a href="#/groups" class="btn btn-ghost btn-sm" title="Manage Groups">👥</a>
+                        </div>
+                    </div>
+                    <div class="wa-search-box">
+                        <span class="wa-search-icon">🔍</span>
+                        <input type="text" id="wa-chat-search" placeholder="Search chats or messages…" value="${esc(chatSearch)}">
+                    </div>
+                    <div class="wa-filter-chips">
+                        <button class="wa-filter-chip ${chatFilter === 'all' ? 'active' : ''}" data-filter="all">All</button>
+                        <button class="wa-filter-chip ${chatFilter === 'groups' ? 'active' : ''}" data-filter="groups">Groups</button>
+                        <button class="wa-filter-chip ${chatFilter === 'communities' ? 'active' : ''}" data-filter="communities">Communities</button>
+                        <button class="wa-filter-chip ${chatFilter === 'unread' ? 'active' : ''}" data-filter="unread">Unread</button>
+                    </div>
+                </div>
+                <div class="wa-chat-list" id="wa-chat-list"></div>
+            </div>
+
+            <div class="wa-conversation" id="wa-conv-pane"></div>
+        </div>
+    `;
+
+    $('#wa-btn-refresh-chats')?.addEventListener('click', async () => {
+        chatListData = await api('GET', '/chats').catch(() => []);
+        drawChatList();
+        updateUnreadTotalBadge();
+        toast('Chats updated');
+    });
+
+    $('#wa-chat-search')?.addEventListener('input', (e) => {
+        chatSearch = e.target.value.trim().toLowerCase();
+        drawChatList();
+    });
+
+    $$('.wa-filter-chip').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            $$('.wa-filter-chip').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            chatFilter = btn.dataset.filter;
+            drawChatList();
+        });
+    });
+
+    drawChatList();
+    if (activeChatJid) {
+        selectChat(activeChatJid);
+    } else {
+        drawEmptyConv();
+    }
+}
+
+function drawChatList() {
+    const listEl = $('#wa-chat-list');
+    if (!listEl) return;
+
+    const filtered = chatListData.filter((c) => {
+        if (chatFilter === 'groups' && c.isCommunity) return false;
+        if (chatFilter === 'communities' && !c.isCommunity && !c.isCommunityAnnounce) return false;
+        if (chatFilter === 'unread' && (!c.unread || c.unread <= 0)) return false;
+        if (chatSearch) {
+            const matchName = (c.subject || '').toLowerCase().includes(chatSearch);
+            const matchMsg = (c.lastMessage?.text || '').toLowerCase().includes(chatSearch);
+            if (!matchName && !matchMsg) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = `<div style="padding:40px 16px;text-align:center;color:var(--muted);font-size:13px">
+            <div style="font-size:32px;margin-bottom:8px">🔍</div>
+            No chats match filter
+        </div>`;
+        return;
+    }
+
+    listEl.innerHTML = filtered.map((c) => {
+        const isActive = c.jid === activeChatJid;
+        const timeStr = c.lastMessage?.timestamp ? formatChatTime(c.lastMessage.timestamp) : '';
+        const lastSnippet = c.lastMessage
+            ? (c.lastMessage.fromMe ? '<span class="wa-checkmarks">✓✓</span> ' : (c.lastMessage.senderName ? esc(c.lastMessage.senderName) + ': ' : '')) + esc(c.lastMessage.text || (c.lastMessage.hasMedia ? '📷 Photo/Media' : ''))
+            : '<span class="hint">No messages yet</span>';
+
+        return `
+            <div class="wa-chat-row ${isActive ? 'active' : ''}" data-jid="${esc(c.jid)}">
+                <div class="wa-chat-avatar">
+                    ${avatar(c.subject)}
+                </div>
+                <div class="wa-chat-info">
+                    <div class="wa-chat-row-top">
+                        <div class="wa-chat-name" title="${esc(c.subject)}">
+                            ${c.isCommunity ? '🏘️ ' : ''}${esc(c.subject)}
+                        </div>
+                        <div class="wa-chat-time">${timeStr}</div>
+                    </div>
+                    <div class="wa-chat-row-bottom">
+                        <div class="wa-chat-last-msg">${lastSnippet}</div>
+                        ${c.unread > 0 ? `<span class="wa-unread-badge">${c.unread}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    $$('.wa-chat-row', listEl).forEach((row) => {
+        row.addEventListener('click', () => {
+            selectChat(row.dataset.jid);
+        });
+    });
+}
+
+function drawEmptyConv() {
+    const pane = $('#wa-conv-pane');
+    if (!pane) return;
+    pane.innerHTML = `
+        <div class="wa-empty-conv">
+            <div class="wa-empty-icon">💬</div>
+            <div class="wa-empty-title">WhatsApp Web for Groups & Communities</div>
+            <div class="wa-empty-desc">
+                Select a group or community from the left to view live incoming/outgoing messages, send updates with dynamic variables, and chat in real-time.
+            </div>
+            <div class="pill pill-ok"><span class="dot"></span><span>End-to-end encrypted Baileys engine active</span></div>
+        </div>
+    `;
+}
+
+async function selectChat(jid) {
+    activeChatJid = jid;
+    $$('.wa-chat-row').forEach((r) => r.classList.toggle('active', r.dataset.jid === jid));
+
+    const chat = chatListData.find((c) => c.jid === jid);
+    if (chat && chat.unread > 0) {
+        chat.unread = 0;
+        updateUnreadTotalBadge();
+        const badge = $(`[data-jid="${jid}"] .wa-unread-badge`);
+        if (badge) badge.remove();
+        api('POST', `/chats/${encodeURIComponent(jid)}/read`).catch(() => { });
+    }
+
+    const pane = $('#wa-conv-pane');
+    if (!pane) return;
+
+    if (!chat) {
+        drawEmptyConv();
+        return;
+    }
+
+    pane.innerHTML = `
+        <div class="wa-conv-header">
+            <div class="wa-conv-header-left" id="wa-header-group-info" title="Click to view group details">
+                ${avatar(chat.subject)}
+                <div class="wa-conv-meta">
+                    <div class="wa-conv-title">${chat.isCommunity ? '🏘️ ' : ''}${esc(chat.subject)}</div>
+                    <div class="wa-conv-subtitle">
+                        ${fmtNum(chat.size)} members${chat.isCommunity ? ' · Community' : (chat.isCommunityAnnounce ? ' · Announcements' : ' · Group')}${chat.iAmAdmin ? ' · Admin' : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="wa-conv-actions">
+                <button id="wa-btn-export" class="btn btn-ghost btn-sm" title="Export member list CSV">📥 CSV</button>
+                <a href="#/broadcasts" class="btn btn-ghost btn-sm" title="Send broadcast">📣 Broadcast</a>
+            </div>
+        </div>
+
+        <div class="wa-messages-container" id="wa-messages">
+            <div class="wa-encryption-notice">
+                🔒 Messages and calls are end-to-end encrypted. Connected via Baileys 7 linked session.
+            </div>
+            <div id="wa-messages-list" style="display:flex;flex-direction:column;gap:8px;">
+                <div class="skeleton" style="height:60px"></div>
+            </div>
+        </div>
+
+        <div class="wa-conv-footer">
+            <div class="wa-composer-vars">
+                <span class="hint" style="font-size:11px;margin-right:2px">Variables:</span>
+                <button type="button" class="wa-composer-var-chip" data-var="{group}" title="Group name">{group}</button>
+                <button type="button" class="wa-composer-var-chip" data-var="{size}" title="Member count">{size}</button>
+                <button type="button" class="wa-composer-var-chip" data-var="{date}" title="Today's date">{date}</button>
+                <button type="button" class="wa-composer-var-chip" data-var="{time}" title="Current time">{time}</button>
+                <button type="button" class="wa-composer-var-chip" data-var="{day}" title="Current day">{day}</button>
+                <button type="button" class="wa-composer-var-chip" data-var="{admins_count}" title="Number of admins">{admins_count}</button>
+            </div>
+            <div id="wa-attachment-preview" class="hidden"></div>
+            <div class="wa-composer-input-row">
+                <input type="file" id="wa-file-input" style="display:none">
+                <button id="wa-attach-btn" class="btn btn-ghost" type="button" title="Attach file or photo" style="font-size:18px;padding:6px 10px">📎</button>
+                <textarea id="wa-message-input" class="wa-composer-input" placeholder="Type a message or use variables… (Press Enter to send, Shift+Enter for new line)" rows="1"></textarea>
+                <button id="wa-send-btn" class="wa-send-btn" type="button" title="Send message (Enter)">➤</button>
+            </div>
+        </div>
+    `;
+
+    activeChatMessages = await api('GET', `/chats/${encodeURIComponent(jid)}/messages`).catch(() => []);
+    drawMessagesList();
+
+    $('#wa-header-group-info')?.addEventListener('click', () => {
+        openGroup(jid);
+    });
+
+    $('#wa-btn-export')?.addEventListener('click', () => {
+        window.location.href = `/api/groups/${encodeURIComponent(jid)}/export`;
+    });
+
+    $$('.wa-composer-var-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            const input = $('#wa-message-input');
+            if (input) {
+                insertAtCursor(input, chip.dataset.var);
+                input.focus();
+            }
+        });
+    });
+
+    let attachedFile = null;
+    const fileInput = $('#wa-file-input');
+    const attachBtn = $('#wa-attach-btn');
+    const previewEl = $('#wa-attachment-preview');
+
+    attachBtn?.addEventListener('click', () => fileInput?.click());
+    fileInput?.addEventListener('change', () => {
+        if (fileInput.files?.[0]) {
+            attachedFile = fileInput.files[0];
+            previewEl.classList.remove('hidden');
+            previewEl.innerHTML = `
+                <div class="wa-attached-file-pill">
+                    <span>📎 ${esc(attachedFile.name)} (${Math.round(attachedFile.size / 1024)} KB)</span>
+                    <span class="remove-file" title="Remove attachment">×</span>
+                </div>
+            `;
+            $('.remove-file', previewEl)?.addEventListener('click', () => {
+                attachedFile = null;
+                fileInput.value = '';
+                previewEl.classList.add('hidden');
+                previewEl.innerHTML = '';
+            });
+        }
+    });
+
+    const msgInput = $('#wa-message-input');
+    const sendBtn = $('#wa-send-btn');
+
+    msgInput?.focus();
+    msgInput?.addEventListener('input', () => {
+        msgInput.style.height = 'auto';
+        msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+    });
+
+    msgInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            doSend();
+        }
+    });
+
+    sendBtn?.addEventListener('click', () => {
+        doSend();
+    });
+
+    async function doSend() {
+        const text = msgInput.value.trim();
+        if (!text && !attachedFile) return;
+
+        sendBtn.disabled = true;
+        try {
+            const formData = new FormData();
+            if (text) formData.append('text', text);
+            if (attachedFile) formData.append('media', attachedFile);
+
+            const res = await api('POST', `/chats/${encodeURIComponent(jid)}/messages`, formData, { form: true });
+            msgInput.value = '';
+            msgInput.style.height = '42px';
+            attachedFile = null;
+            if (fileInput) fileInput.value = '';
+            previewEl.classList.add('hidden');
+            previewEl.innerHTML = '';
+
+            if (res?.message) {
+                activeChatMessages.push(res.message);
+                drawMessagesList();
+                chat.lastMessage = {
+                    id: res.message.id,
+                    text: res.message.text,
+                    fromMe: true,
+                    senderName: 'You',
+                    timestamp: res.message.timestamp,
+                    hasMedia: !!res.message.media
+                };
+                const idx = chatListData.findIndex((c) => c.jid === jid);
+                if (idx > 0) {
+                    const [c] = chatListData.splice(idx, 1);
+                    chatListData.unshift(c);
+                }
+                drawChatList();
+            }
+        } catch (err) {
+            toast(err.message, 'error');
+        } finally {
+            sendBtn.disabled = false;
+            msgInput.focus();
+        }
+    }
+}
+
+function drawMessagesList() {
+    const listEl = $('#wa-messages-list');
+    const container = $('#wa-messages');
+    if (!listEl || !container) return;
+
+    if (activeChatMessages.length === 0) {
+        listEl.innerHTML = `
+            <div style="padding:40px 16px;text-align:center;color:var(--muted);font-size:13px">
+                <div style="font-size:36px;margin-bottom:8px">💬</div>
+                No messages recorded in this chat yet.<br>
+                Type a message below to start chatting!
+            </div>
+        `;
+        return;
+    }
+
+    let lastDateStr = '';
+    const html = [];
+
+    for (const m of activeChatMessages) {
+        const d = new Date(m.timestamp);
+        const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+        if (dateStr !== lastDateStr) {
+            lastDateStr = dateStr;
+            const isToday = d.toDateString() === new Date().toDateString();
+            const label = isToday ? 'Today' : dateStr;
+            html.push(`<div class="wa-date-divider">${esc(label)}</div>`);
+        }
+
+        const isOutgoing = !!m.fromMe;
+        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const senderColor = getSenderColor(m.sender || m.senderName || '');
+
+        let mediaHtml = '';
+        if (m.media) {
+            if (m.media.kind === 'image') {
+                mediaHtml = `<div class="wa-bubble-media"><img src="${esc(m.media.url)}" alt="Media" loading="lazy"></div>`;
+            } else if (m.media.kind === 'video') {
+                mediaHtml = `<div class="wa-bubble-media"><video src="${esc(m.media.url)}" controls></video></div>`;
+            } else if (m.media.kind === 'document') {
+                mediaHtml = `<div class="wa-bubble-media" style="padding:8px;background:hsla(0,0%,0%,0.2);display:flex;align-items:center;gap:8px">
+                    📄 <a href="${esc(m.media.url)}" target="_blank" style="color:var(--accent);word-break:break-all">${esc(m.media.fileName || 'Document')}</a>
+                </div>`;
+            }
+        }
+
+        html.push(`
+            <div class="wa-bubble-wrap ${isOutgoing ? 'outgoing' : 'incoming'}">
+                <div class="wa-bubble ${isOutgoing ? 'outgoing' : 'incoming'}">
+                    ${!isOutgoing && m.senderName ? `<div class="wa-bubble-sender" style="color:${senderColor}">${esc(m.senderName)}</div>` : ''}
+                    ${mediaHtml}
+                    ${m.text ? `<div class="wa-bubble-text">${esc(m.text)}</div>` : ''}
+                    <span class="wa-bubble-meta">
+                        ${timeStr}
+                        ${isOutgoing ? '<span class="wa-checkmarks">✓✓</span>' : ''}
+                    </span>
+                </div>
+            </div>
+        `);
+    }
+
+    listEl.innerHTML = html.join('');
+    container.scrollTop = container.scrollHeight;
+}
 
 // ====================================================================
 // dashboard
