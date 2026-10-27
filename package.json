@@ -1,0 +1,25 @@
+{
+  "name": "wa-groups",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WA-Groups — standalone, lightweight WhatsApp Groups & Communities automation (Baileys / QR login)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch-path=src src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "baileys": "7.0.0-rc14",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "pino": "^9.7.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1"
+  }
+}

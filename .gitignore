@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Runtime data & session secrets (never commit WhatsApp auth keys or DB)
+data/
+storage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

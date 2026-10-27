@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WA-Groups — WhatsApp Groups & Communities Automation</title>
+    <meta name="description" content="Automate WhatsApp groups and communities: broadcasts, auto-replies, moderation, welcome messages, member management, lead capture and analytics.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+    <div class="bg-glow" aria-hidden="true"></div>
+
+    <!-- Login -->
+    <main id="login-view" class="login hidden">
+        <form id="login-form" class="login-card glass">
+            <div class="brand brand-lg"><span class="brand-mark">💬</span><span>WA-<b>Groups</b></span></div>
+            <h1>Groups & Communities Automation</h1>
+            <p class="muted">Sign in to your control room.</p>
+            <input id="login-password" type="password" placeholder="Admin password" autocomplete="current-password" required>
+            <button id="login-submit" class="btn btn-primary btn-block" type="submit">Sign in</button>
+            <p id="login-error" class="error-text"></p>
+        </form>
+    </main>
+
+    <!-- App -->
+    <div id="app-view" class="shell hidden">
+        <aside class="sidebar glass">
+            <div class="brand"><span class="brand-mark">💬</span><span>WA-<b>Groups</b></span></div>
+            <nav id="nav">
+                <a href="#/dashboard" data-route="dashboard"><i>📊</i>Dashboard</a>
+                <a href="#/groups" data-route="groups"><i>👥</i>Groups</a>
+                <a href="#/communities" data-route="communities"><i>🏘️</i>Communities</a>
+                <a href="#/broadcasts" data-route="broadcasts"><i>📣</i>Broadcasts</a>
+                <a href="#/auto-replies" data-route="auto-replies"><i>🤖</i>Auto-Replies</a>
+                <a href="#/moderation" data-route="moderation"><i>🛡️</i>Moderation</a>
+                <a href="#/welcome" data-route="welcome"><i>👋</i>Welcome / Goodbye</a>
+                <a href="#/leads" data-route="leads"><i>📇</i>Leads</a>
+                <a href="#/analytics" data-route="analytics"><i>📈</i>Analytics</a>
+            </nav>
+            <div class="sidebar-foot">
+                <div id="conn-pill" class="pill pill-muted"><span class="dot"></span><span>Offline</span></div>
+                <button id="logout-btn" class="btn btn-ghost btn-sm">Sign out</button>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header class="topbar">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="topbar-actions" id="page-actions"></div>
+            </header>
+            <section id="page" class="page"></section>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card glass">
+            <header class="modal-head">
+                <h2 id="modal-title"></h2>
+                <button id="modal-close" class="icon-btn" aria-label="Close">✕</button>
+            </header>
+            <div id="modal-body" class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Drawer -->
+    <div id="drawer" class="drawer hidden">
+        <div class="drawer-card glass">
+            <header class="modal-head">
+                <h2 id="drawer-title"></h2>
+                <button id="drawer-close" class="icon-btn" aria-label="Close">✕</button>
+            </header>
+            <div id="drawer-body" class="drawer-body"></div>
+        </div>
+    </div>
+
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>
